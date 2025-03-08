@@ -1,4 +1,3 @@
-import concurrent.futures
 from datetime import datetime, timedelta
 from time import sleep
 
@@ -11,9 +10,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait, Select
 
-from web_scraping.db import init_db
-
-session = init_db("sqlite:///hyrox.db")
+from db import init_db
+from web_scraping.scrape_races import scrape_races
+from web_scraping.scrape_seasons import scrape_seasons
 
 
 def get_select(driver, select_id, retries=5, timeout=10):
@@ -193,44 +192,24 @@ def get_season_events(season_tuple):
         driver.quit()
 
 
-def get_seasons():
-    driver = webdriver.Chrome()
-    base_url = "https://results.hyrox.com/"
-    driver.get(base_url)
-    try:
-        # NavBar with season and language dropdowns
-        nav_bar_ul = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "ul.navbar-nav.navbar-right"))
-        )
-
-        season_dropdown = nav_bar_ul.find_element(By.CSS_SELECTOR, "li.dropdown.views").find_element(By.CSS_SELECTOR,
-                                                                                                     "ul.dropdown-menu")
-
-        season_links = season_dropdown.find_elements(By.TAG_NAME, "a")
-        seasons = {}
-        for link in season_links:
-            href = link.get_attribute("href")
-            season_title = link.get_attribute("textContent").strip()  # using textContent instead of .text
-            if "season-" in href:
-                seasons[season_title] = href
-    finally:
-        driver.quit()
-    return seasons
-
-
 if __name__ == '__main__':
+    session = init_db("sqlite:///hyrox.db")
 
-    multiprocess = False
-    seasons = get_seasons()  # dict: {season_title: season_url, ...}
-    print(seasons)
-    season_items = list(seasons.items())
+    seasons = scrape_seasons(session=session)  # Get all seasons from results.hyrox.com
 
-    if not multiprocess:
-        # Sequentially process seasons
-        for season_item in season_items:
-            get_season_events(season_item)
-            break
-    else:
-        # Parallelize processing of seasons using ProcessPoolExecutor
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            executor.map(get_season_events, season_items)
+    scrape_races(session=session)
+
+    foo = 1
+
+    #
+    # season_items = list(seasons.items())
+    #
+    # if not multiprocess:
+    #     # Sequentially process seasons
+    #     for season_item in season_items:
+    #         get_season_events(season_item)
+    #         break
+    # else:
+    #     # Parallelize processing of seasons using ProcessPoolExecutor
+    #     with concurrent.futures.ProcessPoolExecutor() as executor:
+    #         executor.map(get_season_events, season_items)

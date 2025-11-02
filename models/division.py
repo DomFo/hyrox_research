@@ -1,63 +1,69 @@
-from itertools import product
+import enum
 
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.orm import relationship, Session
+from sqlalchemy import Column, Integer, Enum, ForeignKey, String
+from sqlalchemy.orm import relationship
 
 from db import Base
+
+
+class DivisionName(enum.Enum):
+    HYROX = "HYROX"
+    HYROX_DOUBLES = "HYROX DOUBLES"
+    HYROX_PRO = "HYROX PRO"
+    HYROX_PRO_DOUBLES = "HYROX PRO DOUBLES"
+    HYROX_TEAM_RELAY = "HYROX TEAM RELAY"
+    HYROX_ELITE = "HYROX ELITE 15"
+    HYROX_ELITE_DOUBLES = "HYROX DOUBLES ELITE 15"
+    HYROX_ADAPTIVE = "HYROX ADAPTIVE"
+
+    @classmethod
+    def from_string(cls, input_string: str) -> 'DivisionName | None':
+        # TODO: improve matching logic: "HYROX DOUBLES ELITE 15" is sometimes called "HYROX PRO DOUBLES ELITE 15 - Saturday" geez..z
+        # find exact matches of enum values contained in the input string
+        matches = [role for role in cls if role.value in input_string.upper()]
+        # reduce the matches to the longest match
+        if matches:
+            return max(matches, key=lambda role: len(role.value))
+        else:
+            return None
+
+
+class Gender(enum.Enum):
+    MEN = 'MEN'
+    WOMEN = 'WOMEN'
+    MIXED = 'MIXED'
+
+    @classmethod
+    def from_string(cls, input_string: str) -> 'DivisionName | None':
+        input_string = input_string.upper()
+        return next((gender for gender in cls if gender.value == input_string), None)
 
 
 class Division(Base):
     __tablename__ = 'divisions'
     id = Column(Integer, primary_key=True)
-    division = Column(String, nullable=False)
-    gender = Column(String, nullable=False)
+    division = Column(Enum(DivisionName), nullable=False)
+    gender = Column(Enum(Gender), nullable=False)
     # Relationship back to races via the association table
-    races = relationship(
+    race_id = Column(Integer, ForeignKey('races.id', ondelete="CASCADE"), nullable=False)
+    race = relationship(
         "Race",
-        secondary="race_divisions",
         back_populates="divisions"
     )
+    # results.hyrox.com internal event ID for this division
+    event_id = Column(String, nullable=True, unique=False)
+
     # A division has many results.
     results = relationship("Result", back_populates="division", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Division {self.division} {self.gender}>"
+        return f"<Division {self.division.value} {self.gender.value} ({self.race.name}).>"
 
-
-# Possible divisions
-
-
-# Single/Double/Relay  -  Men/Women/Mixed  -  Regular/Pro  -  Resulting Name
-
-# Hyrox - Men
-# Hyrox - Women
-def safely_add_division(division: str, gender: str, session: Session):
-    existing_division = (session.query(Division).filter((Division.division == division)
-                                                        & (Division.gender == gender))
-                         .first())
-    if existing_division:
-        return
-    new_division = Division(division=division,
-                            gender=gender)
-    session.add(new_division)
-    return
-
-
-def create_main_divisions(session: Session):
-    divisions_all_genders = ['Hyrox Doubles',
-                             'Hyrox Team Relay']
-    divisions = divisions_all_genders + ['Hyrox',
-                                         'Hyrox Pro',
-                                         'Hyrox Pro Doubles',
-                                         'Hyrox Elite']
-
-    # 'Hyrox Adaptive']
-    genders = ['Men', 'Women']
-    for division, gender in product(divisions, genders):
-        safely_add_division(division=division, gender=gender, session=session)
-    # mixed divisions:
-    for division in divisions_all_genders:
-        safely_add_division(division=division, gender='Mixed', session=session)
-    # elite divisions:
-
-    session.commit()
+    @classmethod
+    def valid_combination(cls, division, gender) -> bool:
+        # ONLY HYROX DOUBLES and HYROX TEAM RELAY can be MIXED
+        is_mixed = gender == Gender.MIXED
+        is_mixed_division = division in [DivisionName.HYROX_DOUBLES, DivisionName.HYROX_TEAM_RELAY]
+        if is_mixed and not is_mixed_division:
+            return False
+        return True

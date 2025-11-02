@@ -54,6 +54,7 @@ def get_races(season_number: int, max_retries: int = 3) -> Optional[List[Dict[st
             return extracted_events
 
         except requests.exceptions.Timeout:
+            print(f"  ⚠️ Timeout occurred. Retrying... (Attempt {attempt + 1}/{max_retries})")
             time.sleep(5)
         except requests.exceptions.HTTPError as errh:
             if response.status_code >= 500:
@@ -108,12 +109,12 @@ def parse_race_metadata(race_name: str) -> Dict[str, Any]:
 
 # --- New Function: Update Races in DB ---
 
-def update_races_in_db(session: Session, season_data: Dict[str, Any], race_groups: List[Dict[str, str]]):
+def update_races_in_db(session: Session, season: Season, race_groups: List[Dict[str, str]]):
     """
     Inserts or updates Race records for a given Season.
     """
-    season_db_id = season_data.id
-    season_number = season_data.number
+    season_db_id = season.id
+    season_number = season.number
     insert_count = 0
     update_count = 0
 
@@ -152,9 +153,10 @@ def update_races_in_db(session: Session, season_data: Dict[str, Any], race_group
                     is_national_championship=0
                 )
                 session.add(new_race)
+                season.races.append(new_race)
                 insert_count += 1
 
-        session.add(season_data)
+        session.add(season)
         session.commit()
         print(
             f"  ✅ Season {season_number}: Processed {len(race_groups)} events. Inserted: {insert_count}, Updated: {update_count}.")
@@ -194,12 +196,11 @@ if __name__ == '__main__':
         print(f"\n🚀 Processing Season {season_number} (DB ID: {season.id})...")
 
         # Check if the season was updated very recently (within last 2 minutes). If so, skip to avoid redundant work.
-
-        seconds_since_last_update = (dt_datetime.now() - season.last_updated).total_seconds()
-        print(f"  ⏱️ Time since last update: {int(seconds_since_last_update)} seconds.")
-        if seconds_since_last_update < 120:
-            print(f"  ⏭️ Season {season_number} was updated recently. Skipping to avoid redundancy.")
-            continue
+        # seconds_since_last_update = (dt_datetime.now() - season.last_updated).total_seconds()
+        # # print(f"  ⏱️ Time since last update: {int(seconds_since_last_update)} seconds.")
+        # # if seconds_since_last_update < 60:
+        # #     print(f"  ⏭️ Season {season_number} was updated recently. Skipping to avoid redundancy.")
+        # #     continue
 
         # Scrape all 'Event Main Groups' (Races) for this season
         race_groups = get_races(season_number)

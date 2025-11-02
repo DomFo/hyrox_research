@@ -8,9 +8,9 @@ class Result(Base):
     __tablename__ = 'results'
     id = Column(Integer, primary_key=True)
 
-    # one-to-many relationship with races
-    race_id = Column(Integer, ForeignKey('races.id', ondelete="CASCADE"), nullable=False)
-    race = relationship("Race", back_populates="results")
+    # # one-to-many relationship with races
+    # race_id = Column(Integer, ForeignKey('races.id', ondelete="CASCADE"), nullable=False)
+    # race = relationship("Race", back_populates="results")
 
     # one-to-many relationship with divisions
     division_id = Column(Integer, ForeignKey('divisions.id', ondelete="CASCADE"), nullable=False)

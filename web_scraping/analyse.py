@@ -50,8 +50,29 @@ def list_races(session: Session, season_number: int = None):
             list_season_races(session, season.number)
 
 
+def list_divisions(session: Session, race: Race):
+    divisions = session.query(Division).filter(Division.race_id == race.id).order_by(Division.division.asc()).all()
+    for division in divisions:
+        print(division)
+
+
 if __name__ == '__main__':
     session = init_db()
-    list_seasons(session)
+    # list_seasons(session)
     # list_races(session)
+    # existing_race = session.query(Race).filter(Race.name == '2025 Stuttgart').first()
+    # if existing_race:
+    #     list_divisions(session, existing_race)
+    season_8 = session.query(Season).filter(Season.number == 8).first()
+    for race in season_8.races:
+        print(race.name)
+        # print(race.divisions.all())
+        for d in race.divisions:
+            print(f" - {d}")
+        print(f"Number of divisions: {len(race.divisions.all())}")
+        # if
     # rank_most_frequent_divisions(session)
+    atlanta = session.query(Race).filter(Race.name == '2025 Atlanta').first()
+    divisions_atlanta = atlanta.divisions
+    for d in divisions_atlanta:
+        print(d)

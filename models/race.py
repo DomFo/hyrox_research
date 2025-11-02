@@ -14,6 +14,10 @@ class Race(Base):
     country = Column(String, nullable=True)
     city = Column(String, nullable=True)
     venue = Column(String, nullable=True)
+    region = Column(String, nullable=True)
+    is_world_championship = Column(Integer, nullable=False, default=0)
+    is_regional_championship = Column(Integer, nullable=False, default=0)
+    is_national_championship = Column(Integer, nullable=False, default=0)
     season_id = Column(Integer, ForeignKey('seasons.id', ondelete="CASCADE"), nullable=False)
     season = relationship("Season", back_populates="races")
     # Many-to-many: a race can have multiple divisions,
@@ -28,4 +32,4 @@ class Race(Base):
     results = relationship("Result", back_populates="race", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Race {self.name}>"
+        return f"<Race {self.name}, country={self.country}, city={self.city}, date_start={self.date_start}, date_end={self.date_end}>"

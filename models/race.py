@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Date
 from sqlalchemy.orm import relationship
 
 from db import Base
@@ -9,6 +9,11 @@ class Race(Base):
     __tablename__ = 'races'
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
+    date_start = Column(Date, nullable=True)
+    date_end = Column(Date, nullable=True)
+    country = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    venue = Column(String, nullable=True)
     season_id = Column(Integer, ForeignKey('seasons.id', ondelete="CASCADE"), nullable=False)
     season = relationship("Season", back_populates="races")
     # Many-to-many: a race can have multiple divisions,

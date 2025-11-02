@@ -1,6 +1,5 @@
 from typing import List
 
-from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -8,12 +7,12 @@ from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import Session
 
 from models import Season
+from web_scraping.util import get_selenium_driver
 
 
 def scrape_seasons(session: Session) -> List[Season]:
-    driver = webdriver.Chrome()
-    base_url = "https://results.hyrox.com/"
-    driver.get(base_url)
+    driver = get_selenium_driver(url="https://results.hyrox.com/")
+
     try:
         # NavBar with season and language dropdowns
         nav_bar_ul = WebDriverWait(driver, 10).until(
@@ -35,7 +34,8 @@ def scrape_seasons(session: Session) -> List[Season]:
             season_data.append(season)
     finally:
         driver.quit()
-    add_seasons_to_db(session, season_data)
+    sorted_season_data = sorted(season_data, key=lambda x: int(x["number"]))
+    add_seasons_to_db(session, sorted_season_data)
 
     db_seasons = session.query(Season).all()
 

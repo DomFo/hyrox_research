@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 Base = declarative_base()
 
 
-def init_db(db_uri):
+def init_db(db_uri: str = "sqlite:///hyrox.db"):
     engine = create_engine(db_uri)
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)

@@ -3,29 +3,18 @@ from time import sleep
 
 from selenium import webdriver
 from selenium.common.exceptions import (
-    StaleElementReferenceException,
-    TimeoutException
+    StaleElementReferenceException
 )
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait, Select
+from selenium.webdriver.support.ui import WebDriverWait
 
 from db import init_db
+from models.division import create_main_divisions
+from web_scraping.scrape_divisions import scrape_divisions
 from web_scraping.scrape_races import scrape_races
 from web_scraping.scrape_seasons import scrape_seasons
-
-
-def get_select(driver, select_id, retries=5, timeout=10):
-    for _ in range(retries):
-        try:
-            elem = WebDriverWait(driver, timeout).until(
-                EC.presence_of_element_located((By.ID, select_id))
-            )
-            if elem.tag_name.lower() == "select":
-                return Select(elem)
-        except StaleElementReferenceException:
-            sleep(0.5)
-    raise TimeoutException(f"Could not get select element with id '{select_id}' after {retries} retries.")
+from web_scraping.util import get_select
 
 
 def get_split_data_from_row(row) -> dict:
@@ -193,11 +182,11 @@ def get_season_events(season_tuple):
 
 
 if __name__ == '__main__':
-    session = init_db("sqlite:///hyrox.db")
-
-    seasons = scrape_seasons(session=session)  # Get all seasons from results.hyrox.com
-
+    session = init_db()
+    create_main_divisions(session=session)
+    scrape_seasons(session=session)  # Get all seasons from results.hyrox.com
     scrape_races(session=session)
+    scrape_divisions(session=session)
 
     foo = 1
 

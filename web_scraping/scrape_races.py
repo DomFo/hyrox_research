@@ -1,8 +1,7 @@
-from selenium import webdriver
 from sqlalchemy.orm import Session
 
 from models import Season, Race
-from web_scraping.util import get_select
+from web_scraping.util import get_select, get_selenium_driver, race_select_id, get_names_from_select
 
 
 def scrape_races(session: Session):
@@ -25,15 +24,10 @@ def add_races_to_db(session: Session, race_names: list[str], season_id: int):
 
 
 def scrape_season_races(session: Session, season: Season):
-    season_url = season.results_url
-    driver = webdriver.Chrome()
-    driver.get(season_url)
+    driver = get_selenium_driver(url=season.results_url)
     try:
-        race_select = get_select(driver, "default-lists-event_main_group", retries=5)
-        race_names = [
-            opt.text.strip() for opt in race_select.options
-            if opt.text.strip() and not opt.get_attribute("disabled") and not opt.text.strip().startswith("Alle")
-        ]
+        race_select = get_select(driver, race_select_id, retries=5)
+        race_names = get_names_from_select(race_select)
         add_races_to_db(session=session, race_names=race_names, season_id=season.id)
 
     finally:

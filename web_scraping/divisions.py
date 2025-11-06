@@ -83,7 +83,7 @@ def make_divisions(season_number: int,
         event_name = event.get('v')[1]
         event_id = event.get('v')[0]
         base_url = get_base_url(season_number)
-        params = make_params(race_name=race_name,
+        params = make_params(race_name=race.name,
                              event=event_id,
                              sex='M'
                              )
@@ -132,8 +132,7 @@ def make_divisions(season_number: int,
 
 def scrape_divisions(season_number: int,
                      session: Session,
-                     race: Race = None,
-                     ):
+                     race: Race = None):
     if race is not None:
         races = [race]
     else:
@@ -142,17 +141,80 @@ def scrape_divisions(season_number: int,
     for r in races:
         print(f"Scraping divisions for race: {r.name}")
         events = get_events(season_number, r.name)
-        make_divisions(season_number, r, events, session)
+        events_filtered = filter_events(events)
+        make_divisions(season_number, r, events_filtered, session)
+
+
+def filter_events(events: list) -> list:
+    # Filter out daily events if they are present (Multi-day events)
+    # Keep only "Overall" events
+    # BUT!!! Sometimes, events/divisions have also a weekday in them, when there's only one day of that division...
+    filtered_events = []
+    # Get all acceptable division names
+    possible_divisions = [e.value for e in DivisionName]
+    # sort by length descending
+    possible_divisions = sorted(possible_divisions, key=len, reverse=True)
+    # clean the events list so only exact matches remain
+    # this will remove stuff like "HYROX TEAM-CHALLANGE"
+    # but keep "HYROX PRO - Overall" and "HYROX PRO - Friday"
+    clean_events = []
+    for event in events:
+        event_name = event.get('v')[1]
+        event_name_stripped = event_name.split("-")[0].strip()  # remove anything after a hyphen
+        if event_name_stripped not in possible_divisions:
+            continue
+        clean_events.append(event)
+    events = clean_events
+    for division in possible_divisions:
+        existing_events_for_division = [event for event in events if division in event.get('v')[1]]
+        if len(existing_events_for_division) == 0:
+            continue
+        if len(existing_events_for_division) == 1:
+            filtered_events.append(existing_events_for_division[0])
+        if len(existing_events_for_division) > 1:
+            # look for the "Overall" event
+            overall_events = [event for event in existing_events_for_division if "Overall" in event.get('v')[1]]
+            if len(overall_events) != 1:
+                foo = 1
+                raise ValueError(
+                    f"Expected exactly one 'Overall' event for division '{division}', but found {len(overall_events)}: {overall_events}")
+            filtered_events.append(overall_events[0])
+        # remove the events so they don't get queried again
+        [events.remove(event) for event in existing_events_for_division]
+    return filtered_events
+
+
+def example_scrape_specific_race(race_name: str):
+    session = init_db()
+    existing_race = session.query(Race).filter(Race.name == race_name).first()
+
+    # remove existing divisions
+    divisions = existing_race.divisions.all()
+    print(f"Found {len(divisions)} divisions")
+    for division in divisions:
+        print(division)
+        # remove the division
+        session.delete(division)
+    session.commit()
+
+    scrape_divisions(season_number=existing_race.season.number,
+                     session=session,
+                     race=existing_race
+                     )
+
+    divisions = existing_race.divisions.all()
+    print(f"After scraping, found {len(divisions)} divisions")
+    for division in divisions:
+        print(division)
+
+
+def example_scrape_all_for_season(season: int = 8):
+    session = init_db()
+    scrape_divisions(season_number=season,
+                     session=session
+                     )
 
 
 if __name__ == '__main__':
-    race_name = '2025 Stuttgart'
-
-    session = init_db()
-
-    existing_race = session.query(Race).filter(Race.name == race_name).first()
-
-    scrape_divisions(season_number=8,
-                     session=session,
-                     # race=existing_race
-                     )
+    example_scrape_all_for_season(1)
+    # example_scrape_specific_race("2019 Nürnberg")

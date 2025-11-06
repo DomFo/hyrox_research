@@ -63,10 +63,12 @@ if __name__ == '__main__':
     # existing_race = session.query(Race).filter(Race.name == '2025 Stuttgart').first()
     # if existing_race:
     #     list_divisions(session, existing_race)
-    season_8 = session.query(Season).filter(Season.number == 8).first()
-    for race in season_8.races:
+    season = session.query(Season).filter(Season.number == 8).first()
+    for race in season.races:
         print(race.name)
-        # print(race.divisions.all())
+        if not "Hamburg" in race.name:
+            continue
+        print(race.divisions.all())
         for d in race.divisions:
             print(f" - {d}")
         print(f"Number of divisions: {len(race.divisions.all())}")

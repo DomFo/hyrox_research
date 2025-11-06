@@ -57,7 +57,7 @@ class Division(Base):
     results = relationship("Result", back_populates="division", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Division {self.division.value} {self.gender.value} ({self.race.name}).>"
+        return f"<Division {self.division.value} {self.gender.value} ({self.race.name}, id: {self.event_id})).>"
 
     @classmethod
     def valid_combination(cls, division, gender) -> bool:

@@ -1,3 +1,5 @@
+from time import sleep
+
 import requests
 from requests import Session
 
@@ -143,9 +145,20 @@ def scrape_divisions(season_number: int,
         events = get_events(season_number, r.name)
         events_filtered = filter_events(events)
         make_divisions(season_number, r, events_filtered, session)
+        sleep(2)
 
 
 def filter_events(events: list) -> list:
+    # check duplicates
+    event_names = [event.get('v')[1] for event in events]
+    if len(event_names) != len(set(event_names)):
+        events_no_duplicates = []
+        for event in events:
+            id = event.get("v")[0]
+            if not any(e.get("v")[0] == id for e in events_no_duplicates):
+                events_no_duplicates.append(event)
+        events = events_no_duplicates
+
     # Filter out daily events if they are present (Multi-day events)
     # Keep only "Overall" events
     # BUT!!! Sometimes, events/divisions have also a weekday in them, when there's only one day of that division...
@@ -216,5 +229,9 @@ def example_scrape_all_for_season(season: int = 8):
 
 
 if __name__ == '__main__':
-    example_scrape_all_for_season(1)
-    # example_scrape_specific_race("2019 Nürnberg")
+    example_scrape_specific_race("2021 Leipzig")
+    # seasons = [4, 5, 6, 7, 8]
+    # for season in seasons:
+    #     print(f"\n=== Scraping Divisions for Season {season} ===")
+    #     example_scrape_all_for_season(season)
+    #     sleep(3)

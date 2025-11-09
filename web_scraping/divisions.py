@@ -148,10 +148,27 @@ def scrape_divisions(season_number: int,
         sleep(2)
 
 
+def fix_known_mistakes(events: list) -> list:
+    # Berlin 2025: "HYROX PRO DOUBLES - OVERALL" is called "HYROX DOUBLES - OVERALL"
+    event_ids = [event.get('v')[0] for event in events]
+    if "HDP_BERLIN2025_OVERALL" in event_ids:
+        for event in events:
+            if event.get('v')[0] == "HDP_BERLIN2025_OVERALL":
+                event.get('v')[1] = "HYROX PRO DOUBLES - Overall"
+                print("  🛠️ Fixed known mistake in event name for HDP_BERLIN2025_OVERALL")
+    # Heerenveen 2025: "HYROX ADAPTIVE - Overall" is called "HYROX DOUBLES - Overall"
+    if "HA_HEERENVEEN25_OVERALL":
+        for event in events:
+            if event.get('v')[0] == "HA_HEERENVEEN25_OVERALL":
+                event.get('v')[1] = "HYROX ADAPTIVE - Overall"
+                print("  🛠️ Fixed known mistake in event name for HA_HEERENVEEN25_OVERALL")
+    return events
+
 def filter_events(events: list) -> list:
+    events = fix_known_mistakes(events)
     # check duplicates
-    event_names = [event.get('v')[1] for event in events]
-    if len(event_names) != len(set(event_names)):
+    event_ids = [event.get('v')[0] for event in events]
+    if len(event_ids) != len(set(event_ids)):
         events_no_duplicates = []
         for event in events:
             id = event.get("v")[0]
@@ -177,6 +194,11 @@ def filter_events(events: list) -> list:
         if event_name_stripped not in possible_divisions:
             continue
         clean_events.append(event)
+    # give a warning for present unmatched events (in case there are some)
+    if len(clean_events) < len(events):
+        unmatched_events = [event for event in events if event not in clean_events]
+        for unmatched_event in unmatched_events:
+            print(f"  ⚠️ Warning: Unmatched event found and excluded: {unmatched_event.get('v')[1]}")
     events = clean_events
     for division in possible_divisions:
         existing_events_for_division = [event for event in events if division in event.get('v')[1]]
@@ -185,10 +207,9 @@ def filter_events(events: list) -> list:
         if len(existing_events_for_division) == 1:
             filtered_events.append(existing_events_for_division[0])
         if len(existing_events_for_division) > 1:
-            # look for the "Overall" event
-            overall_events = [event for event in existing_events_for_division if "Overall" in event.get('v')[1]]
+            # look for the "Overall" event_id (event name can be corrupt like Rimini 2025 HYROX PRO DOUBLE SATURDAY (exists twice, but one is overall)
+            overall_events = [event for event in existing_events_for_division if "overall" in event.get('v')[0].lower()]
             if len(overall_events) != 1:
-                foo = 1
                 raise ValueError(
                     f"Expected exactly one 'Overall' event for division '{division}', but found {len(overall_events)}: {overall_events}")
             filtered_events.append(overall_events[0])
@@ -229,9 +250,10 @@ def example_scrape_all_for_season(season: int = 8):
 
 
 if __name__ == '__main__':
-    example_scrape_specific_race("2021 Leipzig")
-    # seasons = [4, 5, 6, 7, 8]
-    # for season in seasons:
-    #     print(f"\n=== Scraping Divisions for Season {season} ===")
-    #     example_scrape_all_for_season(season)
-    #     sleep(3)
+    # example_scrape_specific_race("2025 Heerenveen")
+    # seasons = [1, 2, 3, 4, 5, 6, 7, 8]
+    seasons = [7, 8]
+    for season in seasons:
+        print(f"\n=== Scraping Divisions for Season {season} ===")
+        example_scrape_all_for_season(season)
+        sleep(3)

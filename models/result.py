@@ -15,7 +15,6 @@ class Result(Base):
     full_name = Column(String, nullable=True)
     nation_abbreviation = Column(String, nullable=True)
     total_time_ms = Column(Integer, nullable=False)
-    workout_time_ms = Column(Integer, nullable=True)
     link_to_detail_page = Column(String, nullable=True)
 
     # one-to-many relationship with divisions
@@ -29,7 +28,6 @@ class Result(Base):
                  full_name: str,
                  nation_abbreviation: str,
                  total_time_ms: int,
-                 workout_time_ms: int,
                  link_to_detail_page: str
                  ):
         self.age_group = age_group
@@ -38,7 +36,6 @@ class Result(Base):
         self.full_name = full_name
         self.nation_abbreviation = nation_abbreviation
         self.total_time_ms = total_time_ms
-        self.workout_time_ms = workout_time_ms
         self.link_to_detail_page = link_to_detail_page
         super().__init__()
 

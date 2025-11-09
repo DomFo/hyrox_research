@@ -105,12 +105,9 @@ def scrape_divisions_command(race_name: str):
         session.close()
         return
     # 3. Scrape the divisions for the race
-    scraped_divisions = scrape_divisions(season_number=existing_race.season_number, race=existing_race)
-    if len(scraped_divisions) == 0:
-        click.echo(f"❌ Error: No divisions found for race '{race_name}'.")
-        session.close()
-        return
-
+    scrape_divisions(season_number=existing_race.season.number,
+                     session=session,
+                     race=existing_race)
 
 
 if __name__ == '__main__':

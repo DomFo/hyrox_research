@@ -30,6 +30,27 @@ def make_form_data(race_name: str = "",
     }
 
 
+def make_params(page: int,
+                sex: str,
+                division_event_id: str = "",
+                ranking: str = "time_finish_netto",
+                age_class: str = "%",
+                nation: str = "%",
+                num_results: int = 100,
+                ):
+    return {
+        "page": f"{page}",
+        "event": f"{division_event_id}",
+        "num_results": f"{num_results}",
+        "pid": "list",
+        "pidp": "ranking_nav",
+        "ranking": f"{ranking}",
+        "search[sex]": f"{sex}",
+        "search[age_class]": f"{age_class}",
+        "search[nation]": f"{nation}"
+    }
+
+
 def get_search_url(season_number: int) -> str:
     return f"https://results.hyrox.com/season-{season_number}/?pid=list&pidp=ranking_nav"
 
@@ -99,6 +120,7 @@ def get_workout_time(row_soup: Tag) -> str:
 
 
 def parse_row_soup(row_soup: Tag, url: str) -> dict:
+    # todo: check for ALL divisions (doubles, relay) if this logic works (rn, only tested for single)
     rank_overall = get_rank_overall(row_soup)
     rank_age_group = get_rank_age_group(row_soup)
     fullname = get_fullname(row_soup)
@@ -107,7 +129,7 @@ def parse_row_soup(row_soup: Tag, url: str) -> dict:
     detailed_results_page_link = get_detailed_results_page_link(row_soup, url)
     age_group = get_age_group(row_soup)
     total_time = get_total_time(row_soup)
-    workout_time = get_workout_time(row_soup)
+    # workout_time = get_workout_time(row_soup)
 
     row_info_dict = {
         "fullname": fullname,
@@ -116,7 +138,7 @@ def parse_row_soup(row_soup: Tag, url: str) -> dict:
         "rank_age_group": rank_age_group,
         "age_group": age_group,
         "total_time": total_time,
-        "workout_time": workout_time,
+        # "workout_time": workout_time,
         "detailed_results_page_link": detailed_results_page_link,
     }
     return row_info_dict
@@ -141,6 +163,13 @@ def find_division(race: Race,
     return division
 
 
+def get_num_pages(page_soup: BeautifulSoup) -> int | None:
+    # Find page selector to establish number of result pages
+    class_page_selector_container = "pull-right pages"
+    tag_page_selector_container = "div"
+    page_selector_container = page_soup.find(tag_page_selector_container, {"class": class_page_selector_container})
+    return 0
+
 def example_scrape_result_summaries(race_name: str,
                                     division_name: DivisionName,
                                     gender: Gender):
@@ -149,34 +178,44 @@ def example_scrape_result_summaries(race_name: str,
     race = find_race(session, race_name)
     division = find_division(race, division_name, gender)
     url = get_search_url(race.season.number)
-    form_data = make_form_data(race_name=race_name,
-                               division_event_id=division.event_id,
-                               sex=gender.value[0].upper())
+    # form_data = make_form_data(race_name=race_name,
+    #                            division_event_id=division.event_id,
+    #                            sex=gender.value[0].upper())
+    page = 1
+    while page < 1E6:
+        params = make_params(page=page,
+                             division_event_id=division.event_id,
+                             sex=gender.value[0].upper())
 
-    print(f"URL: {url}")
-    print(f"Form Data: {form_data}")
-    response = requests.post(url, data=form_data)
-    print(f"Response Status Code: {response.status_code}")
-    # print(f"Response Text: {response.text[:500]}")  # Print first 500 characters of the response text
+        print(f"URL: {url}")
+        # print(f"Form Data: {form_data}")
+        print(f"Params: {params}")
+        response = requests.post(url, data=params)
+        print(f"Response Status Code: {response.status_code}")
+        # print(f"Response Text: {response.text[:500]}")  # Print first 500 characters of the response text
 
-    page_soup = BeautifulSoup(response.text, 'html.parser')
+        page_soup = BeautifulSoup(response.text, 'html.parser')
 
-    class_table = 'col-sm-12 row-xs'
-    tag_table = 'div'
-    table_soup = page_soup.find_all(tag_table, {"class": class_table})
+        class_table = 'col-sm-12 row-xs'
+        tag_table = 'div'
+        table_soup = page_soup.find_all(tag_table, {"class": class_table})
 
-    tag_rows = 'li'
-    class_rows = 'list-active list-group-item row'
-    class_rows_2 = 'list-group-item row'
-    rows_soup = table_soup[0].find_all(tag_rows, {"class": class_rows}) + \
-                table_soup[0].find_all(tag_rows, {"class": class_rows_2})
-    for row_soup in rows_soup:
-        row_info = parse_row_soup(row_soup, url)
-    print(row_info)
-    new_result = make_new_result(row_info)
-    division.results.append(new_result)
-    session.add(new_result)
-    session.commit()
+        tag_rows = 'li'
+        class_rows = 'list-active list-group-item row'
+        class_rows_2 = 'list-group-item row'
+        rows_soup = table_soup[0].find_all(tag_rows, {"class": class_rows}) + \
+                    table_soup[0].find_all(tag_rows, {"class": class_rows_2})
+        if len(rows_soup) == 0:
+            print("No more results found, ending pagination.")
+            break
+        for row_soup in rows_soup:
+            # todo: check for unique ranks per race (overall and age group)
+            row_info = parse_row_soup(row_soup, url)
+            new_result = make_new_result(row_info)
+            division.results.append(new_result)
+            session.add(new_result)
+            session.commit()
+        page += 1
 
 
 def make_new_result(row_info: dict) -> Result:
@@ -187,7 +226,6 @@ def make_new_result(row_info: dict) -> Result:
         rank_age_group=row_info['rank_age_group'],
         age_group=row_info['age_group'],
         total_time_ms=Result.parse_time_ms(row_info['total_time']),
-        workout_time_ms=Result.parse_time_ms(row_info['workout_time']),
         link_to_detail_page=row_info['detailed_results_page_link'],
     )
 
@@ -206,11 +244,12 @@ def example_print_result_summaries(race_name: str,
 
 
 if __name__ == '__main__':
-    # example_scrape_result_summaries(
-    #     race_name="2019 Nürnberg",
-    #     division_name=DivisionName.HYROX_PRO,
-    #     gender=Gender.MEN)
+    race_name = "2025 Hamburg"
+    example_scrape_result_summaries(
+        race_name=race_name,
+        division_name=DivisionName.HYROX_PRO_DOUBLES,
+        gender=Gender.MEN)
 
-    example_print_result_summaries(race_name="2019 Nürnberg",
+    example_print_result_summaries(race_name=race_name,
                                    division_name=DivisionName.HYROX_PRO,
                                    gender=Gender.MEN)
